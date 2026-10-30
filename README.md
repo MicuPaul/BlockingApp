@@ -40,6 +40,9 @@ Changing the **DNS server** requires restarting the VPN ("Save and apply" does t
 - Blocks whole hostnames only, not URL paths.
 - No foreground notification. The service relies on `START_STICKY` and, when protected, on Android's
   always-on VPN restarting it.
+- After a reboot or an app update, `BootReceiver` restarts the VPN if `Prefs.shouldRun` is set (set on
+  every start, cleared only by Stop). It needs the existing VPN consent and can be refused as a background
+  start if the app is battery-optimized, so keep it Unrestricted.
 
 ## Code map
 
@@ -57,6 +60,7 @@ Changing the **DNS server** requires restarting the VPN ("Save and apply" does t
 | `Prefs.kt` | `SharedPreferences` storage (domains, apps, DNS, zone, `protected` flag), domain/IP helpers, `VpnState.running`. |
 | `PasswordStore.kt` | App password: PBKDF2WithHmacSHA1, 100k iterations, random salt. |
 | `DevicePolicy.kt` | Device Owner features (enable/disable protection, remove owner), adb command strings. |
+| `BootReceiver.kt` | Restarts blocking after `BOOT_COMPLETED` / `MY_PACKAGE_REPLACED` if it was on. |
 | `AdminReceiver.kt` + `res/xml/device_admin.xml` | `DeviceAdminReceiver` required for device owner. |
 | `ui/theme/` | Dark color scheme (dynamic color deliberately off). |
 
@@ -159,7 +163,7 @@ To test device owner "with an account" without a real login, a throwaway debug-o
 Gotchas seen while testing:
 - After the device owner is removed, Android resets the app's VPN consent; the next Start shows the
   "Connection request" dialog and **nothing starts until it is accepted** (looks like "blocking doesn't work").
-- Reinstalling the app stops the VPN; re-tap Start.
+- Reinstalling the app stops the VPN; `BootReceiver` restarts it (`MY_PACKAGE_REPLACED`) if it was on.
 - `adb shell wm size` changes recreate the activity (useful to test responsive layout); reset with `wm size reset`.
 - App blocking can be tested from adb: with blocking on, `adb shell am start -a android.intent.action.VIEW -d
   https://www.youtube.com/watch?v=jNQXAC9IVRw com.google.android.youtube` (run it twice for the PiP case),
