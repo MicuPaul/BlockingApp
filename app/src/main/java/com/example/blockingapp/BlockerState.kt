@@ -9,8 +9,19 @@ import androidx.compose.runtime.setValue
 class BlockerState(private val ctx: Context) {
     var domains by mutableStateOf(Prefs.domains(ctx).sorted())
         private set
+    var apps by mutableStateOf(Prefs.apps(ctx).sorted())
+        private set
+
+    /** The DNS text field; only [saveDns] (behind the password) stores it. */
     var dns by mutableStateOf(Prefs.dns(ctx))
+    var savedDns by mutableStateOf(Prefs.dns(ctx))
+        private set
+    var zone by mutableStateOf(Prefs.zone(ctx))
+        private set
     var domainError by mutableStateOf<String?>(null)
+    var dnsMessage by mutableStateOf<String?>(null)
+
+    /** Result of the protection actions. */
     var message by mutableStateOf<String?>(null)
     var isOwner by mutableStateOf(false)
         private set
@@ -46,21 +57,37 @@ class BlockerState(private val ctx: Context) {
         domains = sorted.toList()
     }
 
+    fun addApp(pkg: String) = updateApps(apps + pkg)
+
+    fun removeApp(pkg: String) = updateApps(apps - pkg)
+
+    private fun updateApps(list: Collection<String>) {
+        val sorted = list.toSortedSet()
+        Prefs.setApps(ctx, sorted)
+        apps = sorted.toList()
+    }
+
+    /** Null removes the zone, so blocking applies everywhere again. */
+    fun saveZone(area: ZoneArea?) {
+        Prefs.setZone(ctx, area)
+        zone = area
+    }
+
     fun saveDns(): Boolean {
         val value = dns.trim()
         if (!Prefs.isIpv4(value)) {
-            message = "DNS must be an IPv4 address, e.g. 9.9.9.9"
+            dnsMessage = "DNS must be an IPv4 address, e.g. 9.9.9.9"
             return false
         }
-        message = null
+        dnsMessage = null
         dns = value
+        savedDns = value
         Prefs.setDns(ctx, value)
         return true
     }
 
-    /** Returns true if protection is now on. */
+    /** Returns true if protection is now on. Uses the saved DNS, not the text field. */
     fun enableProtection(): Boolean {
-        if (!saveDns()) return false
         message = DevicePolicy.enableProtection(ctx)
         refreshPolicy()
         return message == null

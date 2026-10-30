@@ -11,12 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,7 +70,7 @@ fun SetPasswordScreen() {
     CenteredCard {
         Text("Create a password", style = MaterialTheme.typography.headlineSmall)
         Text(
-            "It is required to open the app. If you forget it, the only way out is the PC fail-safe or a factory reset.",
+            "Adding sites and apps doesn't need it. Removing them, changing the DNS, stopping blocking and turning off protection do. If you forget it, the only way out is the PC fail-safe or a factory reset.",
             style = MaterialTheme.typography.bodyMedium
         )
         OutlinedTextField(
@@ -90,29 +92,38 @@ fun SetPasswordScreen() {
     }
 }
 
+/** Asks for the app password before a protected action. Unlocks the session on success. */
 @Composable
-fun LoginScreen() {
+fun PasswordDialog(onDismiss: () -> Unit, onSuccess: () -> Unit) {
     val ctx = LocalContext.current
     var pw by remember { mutableStateOf("") }
     var error by remember { mutableStateOf(false) }
 
     fun unlock() {
-        if (PasswordStore.verify(ctx, pw)) Session.unlocked = true else error = true
+        if (PasswordStore.verify(ctx, pw)) {
+            Session.unlocked = true
+            onSuccess()
+        } else {
+            error = true
+        }
         pw = ""
     }
 
-    CenteredCard {
-        Text("BlockingApp", style = MaterialTheme.typography.headlineSmall)
-        Text("Enter your password to continue.", style = MaterialTheme.typography.bodyMedium)
-        OutlinedTextField(
-            value = pw, onValueChange = { pw = it; error = false }, label = { Text("Password") },
-            singleLine = true, visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { unlock() }),
-            isError = error,
-            supportingText = if (error) ({ Text("Wrong password") }) else null,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Button(onClick = ::unlock, modifier = Modifier.fillMaxWidth()) { Text("Unlock") }
-    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Password required") },
+        text = {
+            OutlinedTextField(
+                value = pw, onValueChange = { pw = it; error = false }, label = { Text("Password") },
+                singleLine = true, visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { unlock() }),
+                isError = error,
+                supportingText = if (error) ({ Text("Wrong password") }) else null,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = { TextButton(onClick = ::unlock) { Text("Unlock") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }

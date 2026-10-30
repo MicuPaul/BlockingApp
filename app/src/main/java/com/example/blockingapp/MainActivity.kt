@@ -16,6 +16,8 @@ import com.example.blockingapp.ui.theme.BlockingAppTheme
 
 object Session {
     var passwordSet by mutableStateOf(false)
+
+    /** Password entered; protected actions don't ask again until the app leaves the screen. */
     var unlocked by mutableStateOf(false)
     var suppressLock = false
 }
@@ -45,11 +47,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun Root() {
-    when {
-        !Session.passwordSet -> SetPasswordScreen()
-        !Session.unlocked -> LoginScreen()
-        else -> BlockerApp()
-    }
+    if (Session.passwordSet) BlockerApp() else SetPasswordScreen()
 }
 
 internal fun startVpn(ctx: Context) {
