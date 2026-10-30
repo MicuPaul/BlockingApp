@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">BlockingApp</string>
+    <string name="app_blocker_description">Covers the apps on your BlockingApp list with a block screen while blocking is on. It only checks which app is on screen and does not read or store any content.</string>
 </resources>
