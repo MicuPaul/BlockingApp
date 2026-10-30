@@ -39,6 +39,7 @@ class BlockingVpnService : VpnService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            Prefs.setShouldRun(this, false)
             stopVpn()
             stopSelf()
             return START_NOT_STICKY
@@ -79,6 +80,7 @@ class BlockingVpnService : VpnService() {
         tun = fd
         running = true
         VpnState.running = true
+        Prefs.setShouldRun(this, true)
         watchAccessibility()
         zoneMonitor.start()
         val executor = Executors.newCachedThreadPool()

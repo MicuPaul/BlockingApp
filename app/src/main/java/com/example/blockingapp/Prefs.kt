@@ -16,6 +16,7 @@ object Prefs {
     private const val KEY_DNS = "dns"
     private const val KEY_APPS = "apps"
     private const val KEY_ZONE = "zone"
+    private const val KEY_SHOULD_RUN = "should_run"
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -53,6 +54,13 @@ object Prefs {
     }
 
     fun isProtected(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_PROTECTED, false)
+
+    /** True from Start until the user presses Stop; [BootReceiver] restarts blocking while it is set. */
+    fun shouldRun(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_SHOULD_RUN, false)
+
+    fun setShouldRun(ctx: Context, value: Boolean) {
+        prefs(ctx).edit().putBoolean(KEY_SHOULD_RUN, value).apply()
+    }
 
     fun setProtected(ctx: Context, value: Boolean) {
         prefs(ctx).edit().putBoolean(KEY_PROTECTED, value).apply()
