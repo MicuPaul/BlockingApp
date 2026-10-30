@@ -1,8 +1,12 @@
 package com.example.blockingapp
 
 import android.content.Intent
+import android.database.ContentObserver
 import android.net.VpnService
+import android.os.Handler
+import android.os.Looper
 import android.os.ParcelFileDescriptor
+import android.provider.Settings
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.DatagramPacket
@@ -23,6 +27,15 @@ class BlockingVpnService : VpnService() {
 
     @Volatile
     private var running = false
+
+    private val zoneMonitor by lazy { ZoneMonitor(this) }
+
+    private var watchingAccessibility = false
+    private val accessibilityObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) {
+            AccessibilityGuard.ensureEnabled(this@BlockingVpnService)
+        }
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
@@ -66,14 +79,34 @@ class BlockingVpnService : VpnService() {
         tun = fd
         running = true
         VpnState.running = true
+        watchAccessibility()
+        zoneMonitor.start()
         val executor = Executors.newCachedThreadPool()
         pool = executor
         reader = Thread({ readLoop(fd, dnsBytes, executor) }, "dns-vpn-reader").also { it.start() }
     }
 
+    /** While blocking is on, switch the app blocker back on whenever it's turned off. */
+    private fun watchAccessibility() {
+        AccessibilityGuard.ensureEnabled(this)
+        val cr = contentResolver
+        cr.registerContentObserver(
+            Settings.Secure.getUriFor(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES), false, accessibilityObserver
+        )
+        cr.registerContentObserver(
+            Settings.Secure.getUriFor(Settings.Secure.ACCESSIBILITY_ENABLED), false, accessibilityObserver
+        )
+        watchingAccessibility = true
+    }
+
     private fun stopVpn() {
         running = false
         VpnState.running = false
+        zoneMonitor.stop()
+        if (watchingAccessibility) {
+            contentResolver.unregisterContentObserver(accessibilityObserver)
+            watchingAccessibility = false
+        }
         reader?.interrupt()
         reader = null
         pool?.shutdownNow()
@@ -150,6 +183,7 @@ class BlockingVpnService : VpnService() {
     }
 
     private fun isBlocked(name: String): Boolean {
+        if (!Zone.inside) return false
         val n = name.lowercase().trimEnd('.')
         return Prefs.domains(this).any { n == it || n.endsWith(".$it") }
     }

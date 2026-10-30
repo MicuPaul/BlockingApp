@@ -14,6 +14,8 @@ object Prefs {
     private const val KEY_PROTECTED = "protected"
     private const val KEY_DOMAINS = "domains"
     private const val KEY_DNS = "dns"
+    private const val KEY_APPS = "apps"
+    private const val KEY_ZONE = "zone"
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -24,7 +26,31 @@ object Prefs {
         prefs(ctx).edit().putStringSet(KEY_DOMAINS, domains.toSet()).apply()
     }
 
+    /** Package names of blocked apps. */
+    fun apps(ctx: Context): Set<String> =
+        prefs(ctx).getStringSet(KEY_APPS, emptySet())?.toSet() ?: emptySet()
+
+    fun setApps(ctx: Context, apps: Set<String>) {
+        prefs(ctx).edit().putStringSet(KEY_APPS, apps.toSet()).apply()
+    }
+
     fun dns(ctx: Context): String = prefs(ctx).getString(KEY_DNS, "") ?: ""
+
+    /** The area where blocking applies, or null to block everywhere. Stored as "lat,lon,radius". */
+    fun zone(ctx: Context): ZoneArea? {
+        val parts = prefs(ctx).getString(KEY_ZONE, null)?.split(',') ?: return null
+        if (parts.size != 3) return null
+        return ZoneArea(
+            parts[0].toDoubleOrNull() ?: return null,
+            parts[1].toDoubleOrNull() ?: return null,
+            parts[2].toIntOrNull() ?: return null
+        )
+    }
+
+    fun setZone(ctx: Context, zone: ZoneArea?) {
+        val value = zone?.let { "${it.lat},${it.lon},${it.radius}" }
+        prefs(ctx).edit().putString(KEY_ZONE, value).apply()
+    }
 
     fun isProtected(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_PROTECTED, false)
 
